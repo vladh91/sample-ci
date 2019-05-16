@@ -1,0 +1,68 @@
+version: "3.1"
+
+services:
+  jenkins:
+    build:
+      context: jenkins/.
+    image: jenkins
+    ports:
+     - "8080:8080"
+    depends_on:
+     - sonar
+     - artifactory
+     - rabbitmq
+    volumes:
+     - "./jenkins/jobs:/var/jenkins_home/jobs"
+     - "./jenkins/m2deps:/var/jenkins_home/.m2/repository"
+     - "./jenkins/downloads:/var/jenkins_home/downloads"
+    secrets:
+     - artifactoryPassword
+  sonar:
+    image: sonarqube:latest
+    ports:
+     - "9000"
+  artifactory:
+    image: docker.bintray.io/jfrog/artifactory-oss:latest
+    ports:
+     - "8081"
+  rabbitmq:
+    build:
+      context: rabbitmq/.
+    image: rabbitmq
+    ports:
+     - "15672:15672"
+     - "5672:5672"
+   
+  email:
+    build:
+      context: email/.
+    image: python
+    depends_on:
+     - rabbitmq
+
+  logstash:
+    image: logstash:latest
+    volumes:
+     - ./:/config
+    command: logstash -f /config/logstash.conf
+    depends_on:
+     - elasticsearch
+
+  elasticsearch:
+     image: elasticsearch:5.6
+     ports:
+     - "9200:9200"
+
+  kibana:
+    image: kibana:5.6
+    ports:
+     - "5601:5601"
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    depends_on:
+     - elasticsearch
+
+
+secrets:
+  artifactoryPassword:
+    file: jenkins/secrets/artifactoryPassword
